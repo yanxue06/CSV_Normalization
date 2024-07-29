@@ -1,111 +1,96 @@
-import csv
-import os.path
+import pandas as pd
+import tkinter as tk
+from tkinter import messagebox, filedialog
 import datetime as dt
-import multiprocessing as mp
-import time
 import re
 import os
+import multiprocessing as mp
 
+# Function to normalize date formats
 def normalize_date(date):
     formats = ["%m/%d/%Y", "%d/%m/%Y", "%Y/%m/%d"]
     for fmt in formats:
         try:
-            date_obj = dt.datetime.strptime(date, fmt)  # Creating date_object with the desired format
-            normalized_date_obj = dt.datetime.strftime(date_obj, "%Y/%m/%d")  # Converting obj back to string
-            return normalized_date_obj
+            date_obj = dt.datetime.strptime(date, fmt)
+            return date_obj.strftime("%Y/%m/%d")
         except ValueError:
             continue
-    return date  # Return original date if no format matches
+    return date
 
-def normalize_dates(file):
-    for row in file:
-        row["date_column"] = normalize_date(row["date_column"])
-    return file  # Updated file with normalized dates
-
-def write_csv(file_output_path, updated_content):
-    if updated_content:
-        fieldnames = updated_content[0].keys()
-        with open(file_output_path, 'w', newline='') as file:
-            writer = csv.DictWriter(file, fieldnames=fieldnames)
-            writer.writeheader()
-            writer.writerows(updated_content)
-    print(f"File {file_output_path} has been processed and saved")
-
+# Function to normalize phone number formats
 def normalize_phone(phone):
     pattern = re.compile(r"^\+?1?[\s.-]?(\d{3})[\s.-]?(\d{3})[\s.-]?(\d{4})$")
     match = pattern.match(phone)
     if match:
         return "({}) {}-{}".format(match.group(1), match.group(2), match.group(3))
-    return phone  # Return original phone if it doesn't match the pattern
+    return phone
 
-def normalize_phones(file):  # Taking in a CSV file with all the content stored as a dictionary
-    for row in file:
-        row["phone"] = normalize_phone(row["phone"])
-    return file  # Updated file with normalized phones
+# Function to normalize a CSV file
+def normalize_file(file_path, output_path, normalize_dates, normalize_phones):
+    # Read the CSV file into a DataFrame
+    df = pd.read_csv(file_path)
+    
+    # Apply the normalization functions based on user selection
+    if normalize_dates:
+        df['date_column'] = df['date_column'].apply(normalize_date)
+    
+    if normalize_phones:
+        df['phone'] = df['phone'].apply(normalize_phone)
+    
+    # Save the normalized DataFrame to the output directory
+    df.to_csv(output_path, index=False)
+    print(f"File {output_path} has been processed and saved")
 
-def process_file(file_input_path, file_output_path, user_changes):
-    try:
-        with open(file_input_path, 'r') as file:
-            rows_content = list(csv.DictReader(file))  # Convert iterator to list
-            for change in user_changes:
-                if change == "normalize_dates":
-                    rows_content = normalize_dates(rows_content)
-                elif change == "normalize_phones":
-                    rows_content = normalize_phones(rows_content)
-            write_csv(file_output_path, rows_content)
-    except FileNotFoundError:
-        print(f"Error: file not found - {file_input_path}")
+class NormalizerApp: 
+    
+    def __init__(self, root):
+        self.root = root
+        self.root.title("CSV Normalizer")
+        self.create_widgets()
+
+    def create_widgets(self):
+        # Create GUI components
+        self.label = tk.Label(self.root, text="Select input and output directories")
+        self.label.pack(pady=10)
+        self.input_button = tk.Button(self.root, text="Select Input Folder", command=self.select_input_folder)
+        self.input_button.pack(pady=5)
+        self.output_button = tk.Button(self.root, text="Select Output Folder", command=self.select_output_folder)
+        self.output_button.pack(pady=5)
+        self.normalize_dates_var = tk.BooleanVar()
+        self.normalize_phones_var = tk.BooleanVar()
+        self.check_dates = tk.Checkbutton(self.root, text="Normalize Dates", variable=self.normalize_dates_var)
+        self.check_dates.pack(pady=5)
+        self.check_phones = tk.Checkbutton(self.root, text="Normalize Phones", variable=self.normalize_phones_var)
+        self.check_phones.pack(pady=5)
+        self.process_button = tk.Button(self.root, text="Process Files", command=self.process_files)
+        self.process_button.pack(pady=20)
+   
+    def select_input_folder(self):
+        self.input_dir = filedialog.askdirectory()
+        messagebox.showinfo("Selected Folder", f"Input Folder: {self.input_dir}")
+
+    def select_output_folder(self):
+        self.output_dir = filedialog.askdirectory()
+        messagebox.showinfo("Selected Folder", f"Output Folder: {self.output_dir}")
+
+    def process_files(self):
+        # Get the list of CSV files in the input directory
+        files = [os.path.join(self.input_dir, f) for f in os.listdir(self.input_dir) if f.endswith(".csv")]
+        processes = []
+        for file in files:
+            output_path = os.path.join(self.output_dir, os.path.basename(file))
+            # Create a new process for each file
+            process = mp.Process(target=normalize_file, args=(file, output_path, self.normalize_dates_var.get(), self.normalize_phones_var.get()))
+            processes.append(process)
+            process.start()
+
+        # Wait for all processes to complete
+        for process in processes:
+            process.join()
+
+        messagebox.showinfo("Process Complete", "All files have been normalized")
 
 if __name__ == "__main__":
-    input_dir = input("Please enter the directory containing CSV files to normalize (input_csv): ").strip().lower()
-    while not os.path.isdir(input_dir):
-        input_dir = input("Invalid directory. Please enter the directory containing CSV files to normalize (output_csv): ").strip().lower()
-
-    output_dir = input("Please enter the directory to save normalized CSV files: ").strip().lower()
-    while not os.path.isdir(output_dir):
-        output_dir = input("Invalid directory. Please enter the directory to save normalized CSV files: ").strip().lower()
-
-    file_input_paths = []
-    file_output_paths = []
-
-    for filename in os.listdir(input_dir):
-        if filename.endswith(".csv"):
-            file_input_path = os.path.join(input_dir, filename)
-            file_output_path = os.path.join(output_dir, filename)
-            file_input_paths.append(file_input_path)
-            file_output_paths.append(file_output_path)
-
-    user_continue = input("Would you like to make changes (y/n)? ").strip().lower()
-    while user_continue not in ["y", "n"]:
-        user_continue = input("Must enter y/n. Try again: ").strip().lower()
-
-    user_changes = []
-    if user_continue == "y":
-        while True:
-            change = input("Enter the changes you would like to apply (normalize_dates/normalize_phones). Type 'done' when finished: ").strip().lower()
-            if change == "done":
-                break
-            elif change in ["normalize_dates", "normalize_phones"]:
-                user_changes.append(change)
-            else:
-                print("Must enter a valid function (normalize_dates/normalize_phones).")
-
-    if user_continue == "y" and user_changes:
-        user_save_changes = input(f"Would you like to save your changes into {output_dir} (y/n)? ").strip().lower()
-        while user_save_changes not in ["y", "n"]:
-            user_save_changes = input("Must enter (y/n): ").strip().lower()
-        processes = []
-        if user_save_changes == "y":
-            start_time = time.time()
-            for file_input_path, file_output_path in zip(file_input_paths, file_output_paths):
-                process = mp.Process(target=process_file, args=(file_input_path, file_output_path, user_changes))
-                processes.append(process)
-                process.start()
-
-            for process in processes:
-                process.join()
-
-            end_time = time.time()
-            print(f"Processing time: {end_time - start_time} seconds")
-        else:
-            print("Changes not saved.")
+    root = tk.Tk()
+    app = NormalizerApp(root)
+    root.mainloop()
