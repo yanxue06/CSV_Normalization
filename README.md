@@ -1,5 +1,5 @@
-#### CSV_Normalization Tool 
+# CSV_Normalization Tool 
 
-The program helps normalize csv date and phone number columns 
+The program helps normalize csv date and phone number columns. 
 
 
