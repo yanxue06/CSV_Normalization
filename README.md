@@ -1,2 +1,5 @@
-This code currently takes in a pre-generated csv file and normalizes its date to year/month/date
-ps: you have to create the directory you want your new, normalized files to save. 
+#### CSV_Normalization Tool 
+
+The program helps normalize csv date and phone number columns 
+
+
