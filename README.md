@@ -1,5 +1,5 @@
 # CSV_Normalization Tool 
 
-The program helps normalize csv date and phone number columns. 
-
+## Features
+This program leverages multiprocessing to efficiently normalize CSV data, including phone numbers and dates. It also uses a tkinter user interface. 
 
