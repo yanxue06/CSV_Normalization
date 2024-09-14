@@ -5,9 +5,9 @@ This program leverages multiprocessing to efficiently normalize CSV data, includ
 
 ## Installation 
 ```bash
-git clone https://github.com/yanxue06/CSV_Normalization.git
-cd CSV_Normalization
-ls
-python CSV_normalization.py
+$ git clone https://github.com/yanxue06/CSV_Normalization.git
+$ cd CSV_Normalization
+$ ls
+$ python CSV_normalization.py
 ```
 Make sure all dependencies are installed before running the script. 
